@@ -10,8 +10,8 @@ export CLASSPATH
 
 RAWSRC = `find org/ -name "*.java"` 
 CLASSDIR=CLASSES/
-JAVAC=javac
-JAVA=java
+JAVAC?=javac
+JAVA?=java
 
 TEST=.
 
