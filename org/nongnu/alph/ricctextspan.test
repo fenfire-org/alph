@@ -1,0 +1,92 @@
+# 
+# Copyright (c) 2003, Tuomas J. Lukka
+# This file is part of Alph.
+# 
+# Alph is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# Alph is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+# 
+# You should have received a copy of the GNU General
+# Public License along with Alph; if not, write to the Free
+# Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA  02111-1307  USA
+# 
+
+
+import alph
+import java
+
+def setUp():
+    global RICC
+    RICC = alph.RICCTextSpan
+
+def testEquals():
+    """Test that equality works right
+    """
+    a = RICC("Foo", 42, "Bar")
+    assert a.equals(RICC("Fo"+"o", 42, "Bar"))
+    assert not a.equals(RICC("Boo", 42, "Bar"))
+    assert not a.equals(RICC("Foo", 43, "Bar"))
+    assert not a.equals(RICC("Foo", 42, "Baa"))
+
+def testIntersects():
+    """Test intersections.
+    """
+    # Two intersecting spans
+    a = RICC("Foo", 42, "Bar")
+    b = RICC("Foo", 43, "arF")
+
+    # Different randomId
+    c = RICC("GRoo", 43, "arF")
+
+    # Different characters
+    d = RICC("Foo", 43, "brF")
+
+    assert a.subSpan(1,3).equals(b.subSpan(0,2))
+    assert a.intersects(b)
+    assert b.intersects(a)
+    assert not b.intersects(c)
+    assert not a.intersects(c)
+    assert not c.intersects(a)
+    assert not c.intersects(b)
+    assert not a.intersects(d)
+    assert not b.intersects(d)
+    assert a.intersects(a.subSpan(1,2))
+    assert b.intersects(a.subSpan(1,2))
+    assert not a.intersects(b.subSpan(2,3))
+    assert not b.intersects(a.subSpan(0,1))
+
+    # 0-length spans should never intersect anything
+
+    assert not a.subSpan(2,2).intersects(b)
+    assert not b.intersects(a.subSpan(2,2))
+
+def testAppend():
+
+# : vim: set syntax=python :
+    # Two appendable
+    a = RICC("Foo", 42, "Bar")
+    b = RICC("Fo"+"o", 45, "fra")
+
+    # Different randomId
+    c = RICC("GRoo", 45, "fra")
+
+    # Different offset
+    d = RICC("Foo", 44, "fra")
+    e = RICC("Foo", 46, "fra")
+
+    assert a.append(b).equals(RICC("Foo", 42, "Barfra"))
+    assert a.append(c) == None
+    assert a.append(d) == None
+    assert a.append(e) == None
+    assert a.append(a) == None
+    assert b.append(a) == None
+    assert c.append(a) == None
+    assert d.append(a) == None
+    assert e.append(a) == None

@@ -1,0 +1,102 @@
+# 
+# Copyright (c) 2003, Tuomas J. Lukka, Benja Fallenstein and Matti Katila
+# This file is part of Alph.
+# 
+# Alph is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# Alph is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+# 
+# You should have received a copy of the GNU General
+# Public License along with Alph; if not, write to the Free
+# Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA  02111-1307  USA
+# 
+
+
+# -*-python-*-
+import org
+import java
+import alph
+
+#from alph.util.dscutil import *
+
+storm = org.nongnu.storm
+
+string = """Where Alph, the sacred river, ran
+Through caverns measureless to man
+"""
+
+def testText():
+    pool = storm.impl.TransientPool(java.util.HashSet())
+    salph = alph.impl.StormAlph(pool)
+    file = java.io.File.createTempFile("stormtest","txt",
+		java.io.File("."))
+    f = open(file.getPath(), "w")
+    f.write(string)
+    f.close()
+
+    sb = salph.addFile(file, "text/plain;charset=UTF-8")
+    file.delete()
+
+    assert string == sb.getCurrent().getText()
+
+def testImg():
+    pool = storm.impl.TransientPool(java.util.HashSet())
+    salph = alph.impl.StormAlph(pool)
+    sb = salph.addFile(java.io.File('testdata/test1.pdf'),
+                       'application/pdf')
+    assert sb.getCurrent().length() == 2
+
+    sp0   = sb.getCurrent().getPage(0)
+    sp1   = sb.getCurrent().getPage(1)
+    sp1_1 = sb.getCurrent().subSpan(1).getPage(0)
+
+    assert sp0.getPageIndex() == 0
+    assert sp1 .getPageIndex()== 1
+    assert sp1_1 .getPageIndex()== 1
+
+    assert not sp0.equals(sp1)
+    assert sp1_1.equals(sp1)
+
+    assert not (sp0.hashCode() == sp1.hashCode())
+    assert not (sp0.equals(sp1))
+
+    assert not sp0.intersects(sp1)
+    assert sp0.intersects(sp0)
+    assert sp1.intersects(sp1_1)
+
+    sp2 = sb.getCurrent().getPage(1).subArea(1,1,2,2)
+    assert not sp0.equals(sp2)
+    assert not sp1.equals(sp2)
+    assert not sp0.equals(sp2.getSuperImageSpan())
+    assert sp1.equals(sp2.getSuperImageSpan())
+
+def testAddTwice():
+    pool = storm.impl.TransientPool(java.util.HashSet())
+    salph = alph.impl.StormAlph(pool)
+
+    sb = salph.addFile(java.io.File('testdata/test1.pdf'),
+                       'application/pdf')
+    assert sb.getCurrent().length() == 2
+
+    sb = salph.addFile(java.io.File('testdata/test1.pdf'),
+                       'application/pdf')
+    assert sb.getCurrent().length() == 2
+
+def testDirPool():
+    directory = org.nongnu.storm.util.TempFileUtil.tmpFile(java.io.File("."))
+    directory.mkdir()
+
+    try:
+        pool = storm.impl.DirPool(directory, java.util.HashSet())
+        myalph = alph.impl.StormAlph(pool)
+
+        myalph.addFile(java.io.File('./testdata/test1.pdf'), 'application/pdf')
+    finally:
+        org.nongnu.storm.util.TempFileUtil.deltree(directory)

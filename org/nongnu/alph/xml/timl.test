@@ -1,0 +1,50 @@
+# -*-python-*-
+# 
+# Copyright (c) 2004, Benja Fallenstein
+# This file is part of Alph.
+# 
+# Alph is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# Alph is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+# 
+# You should have received a copy of the GNU General
+# Public License along with Alph; if not, write to the Free
+# Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA  02111-1307  USA
+# 
+
+
+import java
+
+from org.nongnu.alph import TString
+from org.nongnu.alph.xml import TIMLReader
+
+def testSerialization():
+    s = TString("foo", "http://example.org/", 17)
+    s = s.plus(TString.newFake("---"))
+    s = s.plus(TString("bar", "http://example.net/", 54))
+
+    xml = '''
+        <timl:tstring xmlns:timl="http://fenfire.org/xmlns/2003/09/tstring#">
+            <timl:tspan timl:offs="17" timl:uri="http://example.org/">
+                foo
+            </timl:tspan>
+            ---
+            <timl:tspan timl:offs="54" timl:uri="http://example.net/">
+                bar
+            </timl:tspan>
+        </timl:tstring>
+    '''
+
+    xml = ''.join([line.strip() for line in xml.split('\n')])
+
+    assert s.toXML() == xml
+
+    r = TIMLReader()
+    assert r.read(s.toXML()) == s

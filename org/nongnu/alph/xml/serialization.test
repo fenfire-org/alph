@@ -1,0 +1,215 @@
+# -*-python-*-
+# 
+# Copyright (c) 2003, Tuomas J. Lukka and Benja Fallenstein
+# This file is part of Alph.
+# 
+# Alph is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# Alph is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+# 
+# You should have received a copy of the GNU General
+# Public License along with Alph; if not, write to the Free
+# Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA  02111-1307  USA
+# 
+
+
+from org.nongnu import alph, storm
+from org.nongnu.alph.xml import *
+
+import java
+import javax
+
+#########
+# Helper classes
+
+class Ts(alph.TextSpan):
+    def __init__(self, sb, s, e):
+	print "TS: ",sb,s,e
+	self.sb = sb
+	self.s = s
+	self.e = e
+    def offset(self):
+	return self.s
+    def length(self):
+	return self.e-self.s
+    def getScrollId(self):
+	return self.sb.getID()
+    def toString(self):
+	return "[Fake span]"
+    def append(self, other):
+        if self.sb == other.sb and self.e == other.s:
+            return Ts(self.sb, self.s, other.e)
+        else:
+            return None
+
+class Sb(alph.TextScrollBlock):
+    def __init__(self, id):
+	self.id = id
+    def getSpan(self, s, e):
+	return Ts(self, s, e)
+    def getID(self):
+	return self.id
+
+class TestAlph(alph.Alph):
+    """
+    Partial implementation of Alph, for tests.
+    """
+    def getScrollBlock(self, id):
+	return Sb(id)
+
+#########
+# Helper methods
+
+def getParser():
+    return javax.xml.parsers.SAXParserFactory.newInstance().newSAXParser()
+
+def parseString(string, handler):
+    p = getParser()
+    str = java.lang.String(string)
+    p.parse(java.io.ByteArrayInputStream(str.getBytes('UTF-8')), handler)
+
+###########
+# Actual tests
+
+def testParseSpan():
+    r = SpanReader(TestAlph())
+    str = """<ts b="X" s="5" e="10"/>"""
+    parseString(str, r)
+    sp = r.getSpans()[0]
+    assert sp.sb.id == "X"
+    assert sp.s == 5
+    assert sp.e == 10
+
+    assert SpanSerializer().span2xml(sp) == str
+
+def testMultiple():
+    """See that multiple span readings work right.
+    """
+    r = SpanReader(TestAlph())
+    str = """<alph><ts b="X" s="5" e="10"/><ts b="Y" s="7" e="8"/></alph>"""
+    parseString(str, r)
+    list = r.getSpans()
+    assert list.size() == 2
+
+    assert (
+	SpanSerializer.serialize(
+	    alph.impl.Enfilade1DImpl.Enfilade1DImplMaker().makeEnfilade(list))
+	== str
+    )
+
+
+    parseString(str, r)
+    list = r.getSpans()
+    assert list.size() == 4
+    r.clear()
+    list = r.getSpans()
+    assert list.size() == 0
+    parseString(str, r)
+    list = r.getSpans()
+    assert list.size() == 2
+
+def testURN5():
+    """See that reading and writing URN-5 spans works
+    """
+    r = SpanReader(TestAlph())
+    str = """<uts b="Q" o="5" t="foo&amp;bar"/>"""
+    parseString(str, r)
+    sp = r.getSpans()[0]
+    assert sp.getScrollId() == "Q"
+    assert sp.offset() == 5
+    assert sp.getText() == "foo&bar"
+
+    assert SpanSerializer().span2xml(sp) == str
+
+def testFake():
+    """See that reading/writing fake spans works.
+    """
+    r = SpanReader(TestAlph())
+    str = """<fts t="foo&amp;bar"/>"""
+    parseString(str, r)
+
+    sp = r.getSpans()[0]
+    assert sp.getScrollId() == ""
+    assert sp.offset() == 0
+    assert sp.getText() == "foo&bar"
+
+    assert SpanSerializer().span2xml(sp) == str
+
+def testFakeScandinavic():
+    """See that reading/writing fake spans works with scandinavic alphabets.
+    """
+    SpanReader.dbg = 1
+    r = SpanReader(TestAlph())
+
+    eq = chr(196) + chr(197)
+    s = java.lang.String(eq)
+    assert 1 == java.lang.Character.isDefined(s.charAt(0))
+    
+    str = """<fts t="%s"/>""" % eq
+    print str
+    parseString(str, r)
+    sp = r.getSpans()[0]
+    assert sp.getScrollId() == ""
+    assert sp.offset() == 0
+    print '*****', eq,'',sp.getText()
+    assert sp.getText() == eq
+
+    assert SpanSerializer().span2xml(sp) == str
+
+def testFakeScandic2():
+    """Fake span with scandinavian alphabets - test 2
+    """
+    SpanReader.dbg = 1
+    r = SpanReader(TestAlph())
+    str = """<fts t="säiliö"/>"""
+    s = java.lang.String('ä')
+    assert 1 == java.lang.Character.isDefined(s.charAt(0))
+    print '\nChar is ', s.charAt(0)
+    print '\nGoing to parse'
+    parseString(str, r)
+    print '\nGet spans'
+    sp = r.getSpans()[0]
+    assert sp.getText() == 'säiliö'
+    
+
+def testReturn():
+    str = SpanSerializer().span2xml(alph.FakeTextSpan('a\nb'))
+
+    r = SpanReader(TestAlph())
+    parseString(str, r)
+
+    sp = r.getSpans()[0]
+    assert sp.getScrollId() == ""
+    assert sp.offset() == 0
+    assert sp.getText() == "a\nb"
+
+    assert str == """<fts t="a&#10;b"/>"""
+
+
+def testPageImageSpan():
+    pool = storm.impl.TransientPool(java.util.HashSet())
+    salph = alph.impl.StormAlph(pool)
+    sb = salph.addFile(java.io.File('testdata/test1.pdf'),
+                       'application/pdf')
+    span = sb.getPage(1).subArea(70, 30, 40, 45)
+    s = SpanSerializer()
+    s.addSpan(span)
+    str = s.get()
+
+    assert str == '<alph><pis b="urn:x-storm:1.0:application/pdf,6qrwyxinrkbr6znvopuo2rnqc7jjfpqg.ettfngwwbh4ore2hljm4soyipujr42gc7becvgq" p="1" x="70" y="30" w="40" h="45"/></alph>',str
+
+    r = SpanReader(salph)
+    
+    parseString(str, r)
+    sp = r.getSpans()[0]
+    assert sp.getPageIndex() == 1
+    assert sp.getLocation() == span.getLocation()
+    assert sp.getSize() == span.getSize()
+    

@@ -1,0 +1,97 @@
+# -*-python-*-
+# (c) Tuomas J. Lukka and Benja Fallenstein
+
+from org.nongnu.alph import TString
+import java
+
+dbg = 0
+
+def methodComparison(tstr, str, method, params, allowExc = 1):
+    if dbg: print "Run: ",tstr,str,params,allowExc
+    exc = 0
+    texc = 0
+    try:
+	res = getattr(str, method)(*params)
+    except java.lang.Throwable, e:
+	#print "Exception",e
+	#e.printStackTrace()
+	exc = 1
+    try:
+	tres = getattr(tstr, method)(*params)
+    except java.lang.Throwable, e:
+	texc = 1
+	if not exc:
+	    print "UNEXPECTED Exception",e
+	    e.printStackTrace()
+
+    assert exc == texc, (tstr, str, params)
+    if not exc:
+	if isinstance(tres, TString):
+	    assert tres.toString() == res, (tstr, str, params, tres, res)
+	else:
+	    assert tres == res, (tstr, str, params, tres, res)
+
+def substringMany(tstr, str):
+    methodComparison(tstr, str, "substring", [0, 1], 0)
+    for i in range(-1, str.length() + 2):
+	for j in range(-1, str.length() + 2):
+	    methodComparison(tstr, str, "substring", [i, j])
+
+def charAtMany(tstr, str):
+    for i in range(-1, str.length() + 2):
+	methodComparison(tstr, str, "charAt", [i])
+
+
+def testSubstring_Charat_Length():
+    str0 = java.lang.String("ABCDE")
+    tstr0 = [
+	TString.newRICC("ABCDE"),
+	TString.newRICC("ABC").plus(TString.newRICC("DE")),
+	TString.newRICC("AB").plus(TString.newRICC("C")).plus(TString.newRICC("DE")),
+	TString.newRICC("A").plus(TString.newRICC("BCDE")),
+	TString.newRICC("").plus(TString.newRICC("ABCDE")),
+    ]
+
+    for t in tstr0:
+	substringMany(t, str0)
+    for t in tstr0:
+	charAtMany(t, str0)
+
+
+def testEquals():
+    a = TString.newRICC("ABCDE")
+    b = TString.newRICC("ABCDE")
+    c = a.substring(0, 3).plus(a.substring(3))
+    d = a.substring(0, 3).plus(b.substring(3))
+    e = a.substring(0, 2).plus(a.substring(2))
+    f = TString.newRICC("").plus(e)
+    g = a.plus(b)
+    h = f.plus(TString.newRICC(""))
+
+    assert a == a
+    assert a != b
+    assert a == c
+    assert a != d
+    assert a == e
+    assert a == f
+    assert a != g
+    assert a == h
+
+    assert b != c and b != d and b != e and b != f and b != g and b != h
+
+    assert c != d
+    assert c == e
+    assert c == f
+    assert c != g
+    assert c == h
+
+    assert d != e and d != e and d != f and d != g and d != h
+
+    assert e == f
+    assert e != g
+    assert e == h
+
+    assert f != g
+    assert f == h
+
+    assert g != h

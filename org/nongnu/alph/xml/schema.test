@@ -1,0 +1,142 @@
+# (c) Tuomas J. Lukka
+
+import java
+import javax
+import org
+import traceback
+
+dbg = 0
+
+def printpsvi(psvi):
+    print "PSVI: ",psvi.getValidationAttempted(),\
+	  "valid: ",psvi.getValidity()
+
+class TestHandler(org.xml.sax.helpers.DefaultHandler):
+    def __init__(self, psviProvider):
+	self.psviProvider = psviProvider
+    def startElement(self, nsuri, localName, qName, attrs):
+	psvi = self.psviProvider.getElementPSVI()
+	print "Start ",localName,psvi
+	printpsvi(psvi)
+    def endElement(self, nsuri, localName, qName):
+	psvi = self.psviProvider.getElementPSVI()
+	print "End ",localName,psvi
+	printpsvi(psvi)
+
+def setUpSAX():
+    global saxparserFactory
+
+    saxparserFactory = javax.xml.parsers.SAXParserFactory.newInstance()
+
+    saxparserFactory.setNamespaceAware(1)
+    saxparserFactory.setValidating(1)
+    saxparserFactory.setFeature("http://xml.org/sax/features/validation",1)
+    saxparserFactory.setFeature("http://apache.org/xml/features/validation/schema", 1)
+    saxparserFactory.setFeature("http://apache.org/xml/features/validation/schema-full-checking", 1)
+    # saxparserFactory.setFeature("nosuchfeature", 1)
+
+def saxparse(doc):
+    saxparser = saxparserFactory.newSAXParser()
+
+    assert saxparser.isNamespaceAware()
+    assert saxparser.isValidating()
+
+    handler = TestHandler(saxparser.getXMLReader())
+    print "PARSER:", saxparser,"Handler:",handler
+    saxparser.parse(java.io.ByteArrayInputStream(
+		    java.lang.String(doc).getBytes()), 
+		    handler)
+
+def parse(doc):
+    domparser = org.apache.xerces.parsers.DOMParser()
+    domparser.setFeature("http://apache.org/xml/features/dom/defer-node-expansion", 0)
+    domparser.setFeature("http://xml.org/sax/features/namespaces", 1)
+    domparser.setFeature("http://xml.org/sax/features/validation", 1)
+    domparser.setFeature("http://apache.org/xml/features/validation/schema", 1)
+    domparser.setFeature("http://apache.org/xml/features/validation/schema/augment-psvi", 1)
+    domparser.setFeature("http://apache.org/xml/features/validation/schema-full-checking", 1)
+    domparser.setFeature("http://apache.org/xml/features/validation/warn-on-duplicate-attdef", 1)
+    # XXX Unknown?
+    # domparser.setFeature("http://apache.org/xml/features/validation/warn-on-undeclared-elemdef", 1)
+    domparser.setFeature("http://apache.org/xml/features/warn-on-duplicate-entitydef", 1)
+    domparser.setFeature("http://apache.org/xml/features/standard-uri-conformant", 1)
+
+    domparser.setProperty("http://apache.org/xml/properties/dom/document-class-name", 
+			    "org.apache.xerces.dom.PSVIDocumentImpl")
+
+    print domparser.class
+    # for m in domparser.class.getMethods(): print m
+
+    domparser.parse(org.xml.sax.InputSource(java.io.ByteArrayInputStream(
+		    java.lang.String(doc).getBytes())))
+    doc = domparser.getDocument()
+    print "DOC: ",doc
+    print "DOCE: ",doc.getDocumentElement()
+    # In Java, you'd need to cast...
+    rootPSVI = doc.getDocumentElement()
+    print doc.class
+    # for m in doc.class.getMethods(): print m
+    print rootPSVI.class
+    # for m in rootPSVI.class.getMethods(): print m
+    # Must have tried validation
+    assert rootPSVI.getValidationAttempted() == rootPSVI.VALIDATION_FULL, rootPSVI.getValidationAttempted()
+    assert rootPSVI.getValidity() == rootPSVI.VALIDITY_VALID, rootPSVI.getValidity()
+
+
+
+def ERROR(doc):
+    try:
+	parse(doc)
+    except:
+	if dbg:
+	    traceback.print_exc()
+	    print "Failed CORRECTLY"
+	return 0
+    assert 0 == 1, doc
+
+
+def testErrors():
+
+    # parse("<foo></foo>")
+
+    # Inside a single tstring in the alph namespace, what we can and can't have.
+
+    wrapper = """<alph:tstring
+	xmlns:alph="http://fenfire.org/xmlns/2003/09/tstring#"
+        xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
+	xsi:schemaLocation='http://fenfire.org/xmlns/2003/09/tstring# data/tstring.xsd'>
+	    %s
+    </alph:tstring>"""
+
+    # The basic declaration should be ok
+    parse(wrapper % "")
+
+    # ERROR: Malformed XML should cause an error
+    ERROR(wrapper % " <foo")
+
+    # A basic string
+    parse(wrapper % """foo<alph:tspan alph:uri="http://foo" alph:offs="1">bar</alph:tspan>bar""")
+
+    # A basic string with two spans
+    parse(wrapper % """foo<alph:tspan alph:uri="http://foo" alph:offs="1">bar</alph:tspan>bar
+			oo<alph:tspan alph:uri="http://foo" alph:offs="2">bar</alph:tspan>bar
+		    """)
+
+    # ERROR: No offset
+    ERROR(wrapper % """foo<alph:tspan alph:uri="http://foo">bar</alph:tspan>bar""")
+
+    # ERROR: Negative offset
+    ERROR(wrapper % """foo<alph:tspan alph:offs="-1" alph:uri="http://foo">bar</alph:tspan>bar""")
+
+    # ERROR: No URI 
+    ERROR(wrapper % """foo<alph:tspan alph:offs="1">bar</alph:tspan>bar""")
+
+    # ERROR: Nested tspans
+    ERROR(wrapper % """foo<alph:tspan alph:offs="1"><alph:tspan></alph:tspan>bar</alph:tspan>bar""")
+
+    # ERROR: Nested tstring
+    ERROR( wrapper %
+      """<tstring bar="foo"><tspan offs="XXX"><tspan/></tspan></tstring>""")
+
+
+#  vim: set syntax=python :
