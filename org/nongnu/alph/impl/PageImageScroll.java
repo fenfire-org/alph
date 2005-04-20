@@ -30,8 +30,6 @@ package org.nongnu.alph.impl;
 import org.nongnu.alph.*;
 import org.nongnu.alph.util.*;
 import org.nongnu.storm.*;
-import org.python.util.*;
-import org.python.core.*;
 import java.awt.*;
 import java.awt.image.*;
 import java.io.*;
@@ -75,47 +73,39 @@ public class PageImageScroll extends AbstractScrollBlock implements PageScrollBl
     }
     //    Mediaserver.Block block;
 
-    static PythonInterpreter interp;
-
     /** Generate the page info for this scrollblock.
      */
     private void generatePageInfo() {
 	pa("Generating page info: "+getID());
-	if(interp == null) {
-	    interp = new PythonInterpreter();
-	    interp.exec("import alph\nps=alph.util.dscutil.reliablePS2DSC\n"+
-			"pdf=alph.util.dscutil.reliablePDF2DSC\n"+
-			"pinf=alph.util.dscutil.dsc2pageinfo\n");
-	}
-	PyObject conv1;
-	if(contentType.equals("application/postscript")) {
-	    conv1 = interp.get("ps");
-	} else {
-	    conv1 = interp.get("pdf");
-	}
-	File dsc;
-	BlockFile blockfile;
+
 	try {
+	    File dsc;
+	    BlockFile blockfile;
+
 	    dsc = File.createTempFile("dsc","dsc");
 	    blockfile = alph.getBlockFile(this);
-	} catch(Exception e) {
+
+	    boolean res;
+	    
+	    String infile = blockfile.getFilename(), outfile = dsc.getPath();
+	    
+	    if(contentType.equals("application/postscript")) {
+		res = DSCUtil.reliablePS2DSC(infile, outfile);
+	    } else {
+		res = DSCUtil.reliablePDF2DSC(infile, outfile);
+	    }
+	    
+	    blockfile.close();
+	    
+	    if(!res)
+		throw new Error("Couldn't generate .dsc");
+	    
+	    pageInfo = DSCUtil.dsc2pageinfo(dsc.getPath());
+	    
+	    if(dbg) pa("Result from dsc: "+pageInfo);
+	} catch(IOException e) {
 	    throw new Error(""+e);
 	}
-	PyObject res = conv1.__call__(new PyObject[] {
-	    new PyString(blockfile.getFilename()),
-	    new PyString(dsc.getPath()),
-	});
-	blockfile.close();
-	if(! res.__nonzero__())
-	    throw new Error("Couldn't generate .dsc");
-
-	res = interp.get("pinf").__call__(
-	    new PyString(dsc.getPath())
-		);
-
-
-	if(dbg) pa("Result from dsc: "+res);
-	pageInfo= (PageInfo)res.__tojava__(PageInfo.class);
     }
 
     private File getDscCacheFile() {
