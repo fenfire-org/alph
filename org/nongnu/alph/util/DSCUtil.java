@@ -52,7 +52,10 @@ public class DSCUtil {
 
     /** Convert a pdf file to a .dsc file. */
     public static boolean reliablePDF2DSC(String infile, String outfile) throws IOException {
+	/* call gs directly as pdf2dsc script isn't available everywhere:
 	String cmdline = "pdf2dsc "+infile+" "+outfile;
+	*/
+	String cmdline = "gs -q -dNODISPLAY -dSAFER -dDELAYSAFER -sPDFname="+infile+" -sDSCname="+outfile+" pdf2dsc.ps -c quit";
 
 	if(dbg) p("CMD: "+cmdline);
 
