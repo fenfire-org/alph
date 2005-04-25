@@ -82,7 +82,7 @@ public class PageImageScroll extends AbstractScrollBlock implements PageScrollBl
 	    File dsc;
 	    BlockFile blockfile;
 
-	    dsc = File.createTempFile("dsc","dsc");
+	    dsc = File.createTempFile("dsc",".dsc");
 	    blockfile = alph.getBlockFile(this);
 
 	    boolean res;

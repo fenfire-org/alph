@@ -35,7 +35,7 @@ Through caverns measureless to man
 def testText():
     pool = storm.impl.TransientPool(java.util.HashSet())
     salph = alph.impl.StormAlph(pool)
-    file = java.io.File.createTempFile("stormtest","txt",
+    file = java.io.File.createTempFile("stormtest",".txt",
 		java.io.File("."))
     f = open(file.getPath(), "w")
     f.write(string)
