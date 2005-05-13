@@ -67,11 +67,14 @@ public class DSCUtil {
 	}
     }
 
+    /** It works like, look, there's one, and there's another one, so there are two.
+     */
     private static int count(String s, String find) {
 	int i=0, n=0;
 	while(true) {
 	    i = s.indexOf(find, i);
 	    if(i < 0) return n;
+	    i += find.length();
 	    n++;
 	}
     }
